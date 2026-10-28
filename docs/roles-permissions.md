@@ -16,6 +16,8 @@
 
 Los permisos se verifican en el servidor y las lecturas se acotan por el usuario autenticado. El rol no se acepta desde el formulario. No existen cuentas públicas de demostración con permiso de administración.
 
+Administración y docencia pueden coexistir: un administrador puede completar y confirmar su propia ficha docente sin cambiar su rol. El selector Administración / Profesor conserva la gestión global y muestra, en el espacio docente, únicamente sus propios grupos, alumnos, agenda e ingresos. La publicación de su ficha es explícita y las operaciones bancarias y de disponibilidad requieren un perfil docente autorizado.
+
 `superadmin` se autoriza por stdin sobre una cuenta que ya ha accedido con Lichess y completado su nombre. No se crean credenciales locales. En esta versión admin y superadmin comparten las funciones implementadas; la delegación granular y gestión de administradores requiere una fase adicional.
 
 Las operaciones de academia requieren identidad Lichess y perfil con nombre y apellidos reales, mayoría de edad y aceptación de privacidad. Un perfil incompleto solo puede completarse o cerrar sesión. La elección «profesor» crea un candidato, nunca un profesor activo. Las sesiones tienen token opaco en cookie HttpOnly, Secure en producción y SameSite=Lax. El hash del token y su caducidad están en PostgreSQL. No existen contraseña local, recuperación ni endpoints de registro por email. La migración a Lichess invalida todas las sesiones anteriores y elimina los hashes heredados.
