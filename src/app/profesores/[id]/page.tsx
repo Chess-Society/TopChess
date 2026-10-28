@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { teachers, groups } from '@/lib/catalog';
 import { Avatar, GroupCard } from '@/components/ui';
 import { query } from '@/lib/db';
+import { WEEKDAYS } from '@/lib/teacher-availability';
 export const dynamic = 'force-dynamic';
 export default async function TeacherDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -40,7 +41,35 @@ export default async function TeacherDetail({ params }: { params: Promise<{ id: 
           <p>{t.levels.join(' · ')}</p>
         </div>
       </div>
+      <section className="panel public-availability">
+        <h2>Disponibilidad habitual</h2>
+        <p>Hora de Madrid · Horarios semanales indicados por el profesor.</p>
+        {t.availability?.length ? (
+          <ul className="availability-list">
+            {t.availability.map((s) => (
+              <li key={s.id}>
+                <strong>{WEEKDAYS[s.weekday - 1]}</strong>
+                <span>
+                  {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>El profesor todavía no ha publicado sus horarios habituales.</p>
+        )}
+        <p className="small-text">
+          Para reservar, consulta los grupos publicados debajo: allí verás las fechas concretas y
+          las plazas. Estas franjas no cambian las clases ya acordadas.
+        </p>
+      </section>
       <h2>Encuentra tu grupo con {t.name.split(' ')[0]}</h2>
+      {!catalog.items.some((g) => g.teacher_id === id) && (
+        <p>
+          Todavía no hay grupos publicados con este profesor. Las nuevas incorporaciones se
+          organizan para el mes siguiente.
+        </p>
+      )}
       <div className="course-grid">
         {catalog.items
           .filter((g) => g.teacher_id === id)

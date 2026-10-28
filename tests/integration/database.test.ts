@@ -7,7 +7,26 @@ import { Pool } from 'pg';
 import { reserve, createGroup, withdraw, createReview } from '../../src/lib/academy';
 import type { User } from '../../src/lib/auth';
 import { linkIdentity } from '../../src/lib/lichess';
+import { TeacherAvailability, publicAvailability } from '../../src/lib/teacher-availability';
 const database = new PGlite({ extensions: { btree_gist } });
+
+test('la disponibilidad semanal conserva compatibilidad con PostgreSQL', async () => {
+  const user: User = {
+    id: teacherId,
+    name: 'Profesor de prueba',
+    email: null,
+    role: 'teacher',
+    verified_at: new Date(),
+  };
+  const service = new TeacherAvailability();
+  await service.save(user, { weekdays: [1, 3], start: '17:00', end: '19:00' });
+  await service.save(user, { weekdays: [1], start: '19:00', end: '20:00' });
+  await service.save(user, { weekdays: [1, 3], start: '17:00', end: '19:00' });
+  const slots = await publicAvailability(teacherId);
+  assert.equal(slots.length, 3);
+  await service.remove(user, slots[0].id);
+  assert.equal((await publicAvailability(teacherId)).length, 2);
+});
 const admin: User = {
   id: '00000000-0000-4000-8000-000000000001',
   name: 'Admin de prueba',

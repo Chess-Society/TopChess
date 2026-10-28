@@ -6,5 +6,6 @@
 - Diseño de referencia: carbón y marfil, bordes negros, esquinas redondeadas y sombra inferior marcada. Aplicarlo también a menús, desplegables, formularios y paneles.
 - Se reserva para incorporarse el mes natural siguiente: cuatro sesiones con fechas y horarios fijos. No hay incorporación parcial a final de mes.
 - Ni alumno ni profesor cambian unilateralmente las clases. TopChess coordina excepciones y continuidad.
+- El profesor autorizado publica su disponibilidad semanal desde el panel: puede marcar varios días, añadir franjas y retirar las propias. El alumno ve los horarios de Madrid en el catálogo y en la ficha docente. Son disponibilidad habitual; las fechas y plazas que se pueden contratar siguen siendo las de los grupos publicados. No modificar clases ya acordadas al editar franjas.
 
 Detalle: [reglas de negocio](../business-rules.md). Código: `src/lib/monthly-calendar.ts`, `src/components/dashboard.tsx`, `src/app/reference-theme.css`, `src/app/audience.css`.

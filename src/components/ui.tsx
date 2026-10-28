@@ -157,6 +157,24 @@ export function TeacherCard({ teacher, index = 0 }: { teacher: Teacher; index?: 
           <ArrowUpRight size={20} />
         </div>
         <p>{teacher.headline}</p>
+        {teacher.availability?.length ? (
+          <div className="teacher-hours">
+            <strong>Horarios · Madrid</strong>
+            {teacher.availability.slice(0, 2).map((s) => (
+              <p key={s.id}>
+                {
+                  ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'][
+                    s.weekday - 1
+                  ]
+                }{' '}
+                · {s.start_time.slice(0, 5)}–{s.end_time.slice(0, 5)}
+              </p>
+            ))}
+            {teacher.availability.length > 2 && <small>Más horarios en su ficha</small>}
+          </div>
+        ) : (
+          <p className="small-text">Horarios habituales pendientes de publicar</p>
+        )}
         <div className="tags">
           {teacher.specialties.map((x) => (
             <span key={x}>{x}</span>

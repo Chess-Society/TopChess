@@ -1,3 +1,4 @@
+import { TeacherAvailability } from '@/lib/teacher-availability';
 import { z, ZodError } from 'zod';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { query, transaction } from '@/lib/db';
@@ -211,21 +212,16 @@ async function api(request: Request, context: { params: Promise<{ path: string[]
     });
     return { message: 'Candidatura recibida. Podrás consultar su estado en tu panel.' };
   }
-  if (path === 'teacher/availability') {
-    assert(user.role === 'teacher', 'Acceso reservado a profesores aprobados.', 403);
-    const d = z
-      .object({
-        weekday: z.number().int().min(1).max(7),
-        start: z.string().regex(/^\d{2}:\d{2}$/),
-        end: z.string().regex(/^\d{2}:\d{2}$/),
-      })
-      .parse(await body(request));
-    assert(d.end > d.start, 'La hora final debe ser posterior al inicio.');
-    await query(
-      'INSERT INTO teacher_availability(teacher_id,weekday,start_time,end_time) VALUES($1,$2,$3,$4)',
-      [user.id, d.weekday, d.start, d.end],
-    );
-    return { message: 'Franja propuesta. TopChess debe aprobarla.' };
+  if (path === 'teacher/availability' || path === 'teacher/availability/remove') {
+    const service = new TeacherAvailability();
+    const d = await body(request);
+    if (path.endsWith('/remove')) await service.remove(user, d.id);
+    else await service.save(user, d);
+    return {
+      message: path.endsWith('/remove')
+        ? 'Horario retirado. Tus clases acordadas se mantienen.'
+        : 'Disponibilidad publicada en tu ficha.',
+    };
   }
   if (path === 'sessions/report') {
     assert(user.role === 'teacher' || adminRoles.includes(user.role), 'Acceso no autorizado.', 403);
@@ -327,7 +323,7 @@ async function api(request: Request, context: { params: Promise<{ path: string[]
         title: z.string().min(5).max(120),
         level: z.enum(['Principiante', 'Intermedio', 'Avanzado']),
         language: z.string().min(2).max(50),
-        capacity: z.number().int().min(2).max(12),
+        capacity: z.number().int().min(2).max(4),
         firstAt: z.iso.datetime(),
         duration: z.number().int().min(30).max(180),
         timezone: z.string().refine((v) => {

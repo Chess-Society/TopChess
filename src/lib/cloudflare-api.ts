@@ -11,6 +11,7 @@ import { monthlyCalendar, sameBillingMonth, BILLING_TIMEZONE } from './monthly-c
 import { ManualSettlements } from './manual-settlements';
 import { normalizeIban, encryptIban, decryptIban } from './teacher-bank';
 import { billingPreflight } from './billing-preflight';
+import { TeacherAvailability } from './teacher-availability';
 import { saveAdminTeachingProfile, requireTeachingProfile } from './admin-teaching';
 const id = z.uuid();
 async function data(request: Request) {
@@ -352,24 +353,16 @@ export async function cloudflareApi(
     ]);
     return done('Candidatura recibida. Consulta su estado en tu panel.');
   }
-  if (path === 'teacher/availability') {
-    await requireTeachingProfile(user);
-    const d = z
-      .object({
-        weekday: z.number().int().min(1).max(7),
-        start: z.string().regex(/^\d{2}:\d{2}$/),
-        end: z.string().regex(/^\d{2}:\d{2}$/),
-      })
-      .parse(await data(request));
-    assert(d.end > d.start, 'La hora final debe ser posterior.');
-    await atomic([
-      {
-        sql: 'INSERT INTO teacher_availability(teacher_id,weekday,start_time,end_time) VALUES($1,$2,$3,$4)',
-        values: [user.id, d.weekday, d.start, d.end],
-      },
-      auditStatement(user.id, 'propose_availability', 'teacher', user.id),
-    ]);
-    return done('Franja propuesta para aprobación.');
+  if (path === 'teacher/availability' || path === 'teacher/availability/remove') {
+    const service = new TeacherAvailability();
+    const d = await data(request);
+    if (path.endsWith('/remove')) await service.remove(user, d.id);
+    else await service.save(user, d);
+    return done(
+      path.endsWith('/remove')
+        ? 'Horario retirado. Tus clases acordadas se mantienen.'
+        : 'Disponibilidad publicada. Los alumnos podrán verla en tu ficha pública.',
+    );
   }
   if (path === 'sessions/report' || path === 'attendance') {
     assert(user.role === 'teacher' || canAdmin(user.role), 'Acceso no autorizado.', 403);
@@ -460,7 +453,7 @@ export async function cloudflareApi(
         title: z.string().min(5).max(120),
         level: z.enum(['Principiante', 'Intermedio', 'Avanzado']),
         language: z.string().min(2).max(50),
-        capacity: z.number().int().min(2).max(12),
+        capacity: z.number().int().min(2).max(4),
         firstAt: z.iso.datetime(),
         duration: z.number().int().min(30).max(180),
         timezone: z.string(),

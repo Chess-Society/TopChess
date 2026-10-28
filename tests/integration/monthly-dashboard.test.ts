@@ -64,12 +64,21 @@ test('los cinco paneles ejecutan las consultas nuevas con el adaptador D1 y los 
       store.admin,
       store.group,
     ]);
+    await store.query(
+      "INSERT INTO teacher_availability(teacher_id,weekday,start_time,end_time,approved) VALUES($1,1,'17:00','19:00',1),($2,3,'10:00','12:00',0)",
+      [store.admin, store.teacher],
+    );
     adminData = await dashboard(adminUser);
     assert.ok('teaching' in adminData);
     assert.equal(adminData.groups?.length, 1);
     assert.equal(adminData.teaching?.groups?.length, 1);
     assert.equal(adminData.teaching?.profile?.headline, 'Prueba propia');
     assert.ok(adminData.teaching?.sessions?.length);
+    assert.equal(adminData.teacherAvailability?.length, 2);
+    assert.equal(adminData.teaching?.availability?.length, 1);
+    assert.equal(adminData.teaching?.availability?.[0].teacher_id, store.admin);
+    assert.equal(typeof adminData.billing?.enabled, 'boolean');
+    assert.equal(typeof adminData.billing?.legalReady, 'boolean');
     await store.query("UPDATE groups SET status='active' WHERE id=$1", [store.group]);
     await store.query("UPDATE group_enrollments SET status='active' WHERE id=$1", [enrollments[0]]);
     await store.query(

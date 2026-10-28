@@ -1,6 +1,7 @@
 'use client';
 import { Select } from '@/components/select';
 import { useState } from 'react';
+import { fromZonedTime } from 'date-fns-tz';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -18,9 +19,13 @@ import {
 import { ActionForm, Logout } from './action-form';
 import { SettlementsPanel, type SettlementsData } from './settlements-panel';
 import { TeacherBankForm } from './teacher-bank';
+import { TeacherAvailabilityForm } from './teacher-availability';
+import type { Availability } from '@/lib/teacher-availability';
 import { money, type Role } from '@/lib/domain';
 type Row = { [key: string]: string | number | boolean | null | undefined };
 export type DashboardData = {
+  teacherAvailability?: Availability[];
+  billing?: { enabled: boolean; legalReady: boolean };
   teaching?: DashboardData;
   enrollments?: Row[];
   sessions?: Row[];
@@ -697,7 +702,7 @@ export function Dashboard({
                     <Metric
                       title="TU PARTICIPACIÓN"
                       value={`${Number(data.profile?.teacher_bps || 5000) / 100} %`}
-                      note="Sobre la base económica pactada"
+                      note="Sobre cada cuota completa de 50 €"
                     />
                     <Metric
                       title="CICLO PROFESIONAL"
@@ -808,65 +813,17 @@ export function Dashboard({
                 </>
               )}
               {tab === 'availability' && (
-                <>
-                  <section className="panel">
-                    <h2>Tu disponibilidad</h2>
-                    <Table
-                      rows={data.availability || []}
-                      columns={[
-                        ['weekday', 'Día (1=lunes)'],
-                        ['start_time', 'Desde'],
-                        ['end_time', 'Hasta'],
-                        ['approved', 'Aprobada'],
-                      ]}
-                    />
-                  </section>
-                  <section className="panel">
-                    <h2>Proponer una franja</h2>
-                    <p>
-                      TopChess revisa y autoriza los horarios. Proponer una franja no cambia clases
-                      contratadas.
-                    </p>
-                    <ActionForm
-                      endpoint="/api/teacher/availability"
-                      label="Proponer horario"
-                      transform={(f) => ({
-                        weekday: Number(f.get('weekday')),
-                        start: f.get('start'),
-                        end: f.get('end'),
-                      })}
-                    >
-                      <label>
-                        Día
-                        <Select name="weekday">
-                          {[
-                            'Lunes',
-                            'Martes',
-                            'Miércoles',
-                            'Jueves',
-                            'Viernes',
-                            'Sábado',
-                            'Domingo',
-                          ].map((d, i) => (
-                            <option key={d} value={i + 1}>
-                              {d}
-                            </option>
-                          ))}
-                        </Select>
-                      </label>
-                      <div className="form-row">
-                        <label>
-                          Inicio
-                          <input name="start" type="time" required />
-                        </label>
-                        <label>
-                          Fin
-                          <input name="end" type="time" required />
-                        </label>
-                      </div>
-                    </ActionForm>
-                  </section>
-                </>
+                <TeacherAvailabilityForm
+                  slots={(data.availability || []).map((s) => ({
+                    id: String(s.id),
+                    teacher_id: user.id,
+                    weekday: Number(s.weekday),
+                    start_time: String(s.start_time),
+                    end_time: String(s.end_time),
+                    timezone: String(s.timezone || 'Europe/Madrid'),
+                    approved: Boolean(s.approved),
+                  }))}
+                />
               )}
               {tab === 'income' && (
                 <>
@@ -975,6 +932,13 @@ export function Dashboard({
                       evaluación automática de calidad.
                     </p>
                     <div className="notice">
+                      <strong>
+                        Cobros mensuales:{' '}
+                        {data.billing?.enabled && data.billing?.legalReady
+                          ? 'activados'
+                          : 'desactivados'}
+                        .
+                      </strong>{' '}
                       Stripe gestiona las cuotas de los alumnos. Las transferencias a profesores las
                       realiza TopChess manualmente y se registran en «Pagos a profesores». Los
                       cobros requieren completar la configuración y las pruebas antes de activarse.
@@ -1015,45 +979,50 @@ export function Dashboard({
                         <a className="text-link" href={`/api/applications/${a.id}/cv`}>
                           Descargar CV privado <ArrowUpRight size={15} />
                         </a>
-                        <ActionForm endpoint="/api/admin/application" label="Actualizar expediente">
-                          <input type="hidden" name="applicationId" value={String(a.id)} />
-                          <label>
-                            Nuevo estado
-                            <Select name="status">
-                              {[
-                                'documents',
-                                'review',
-                                'references',
-                                'interview',
-                                'trial',
-                                'approved',
-                                'rejected',
-                              ].map((s) => (
-                                <option key={s} value={s}>
-                                  {labels[s]}
-                                </option>
-                              ))}
-                            </Select>
-                          </label>
-                          <label>
-                            Motivo administrativo
-                            <textarea
-                              name="reason"
-                              minLength={5}
-                              maxLength={2000}
-                              required
-                              rows={2}
-                            />
-                          </label>
-                          <label className="check-label">
-                            <input type="checkbox" name="agreement" />
-                            Acuerdo profesional aceptado (obligatorio para aprobar)
-                          </label>
-                          <label className="check-label">
-                            <input type="checkbox" name="verified" />
-                            Requisitos administrativos verificados (obligatorio para aprobar)
-                          </label>
-                        </ActionForm>
+                        {!['approved', 'rejected', 'withdrawn'].includes(String(a.status)) && (
+                          <ActionForm
+                            endpoint="/api/admin/application"
+                            label="Actualizar expediente"
+                          >
+                            <input type="hidden" name="applicationId" value={String(a.id)} />
+                            <label>
+                              Nuevo estado
+                              <Select name="status">
+                                {[
+                                  'documents',
+                                  'review',
+                                  'references',
+                                  'interview',
+                                  'trial',
+                                  'approved',
+                                  'rejected',
+                                ].map((s) => (
+                                  <option key={s} value={s}>
+                                    {labels[s]}
+                                  </option>
+                                ))}
+                              </Select>
+                            </label>
+                            <label>
+                              Motivo administrativo
+                              <textarea
+                                name="reason"
+                                minLength={5}
+                                maxLength={2000}
+                                required
+                                rows={2}
+                              />
+                            </label>
+                            <label className="check-label">
+                              <input type="checkbox" name="agreement" />
+                              Acuerdo profesional aceptado (obligatorio para aprobar)
+                            </label>
+                            <label className="check-label">
+                              <input type="checkbox" name="verified" />
+                              Requisitos administrativos verificados (obligatorio para aprobar)
+                            </label>
+                          </ActionForm>
+                        )}
                       </details>
                     ))
                   )}
@@ -1076,6 +1045,40 @@ export function Dashboard({
                         <p>
                           Perfil público: {t.published ? 'Sí' : 'No'} · Ciclo profesional: {t.cycle}
                         </p>
+                        <h3>Disponibilidad semanal · Madrid</h3>
+                        {data.teacherAvailability?.some((s) => s.teacher_id === t.id) ? (
+                          <ul className="availability-list">
+                            {data.teacherAvailability
+                              .filter((s) => s.teacher_id === t.id)
+                              .map((s) => (
+                                <li key={s.id}>
+                                  <strong>
+                                    {
+                                      [
+                                        'Lunes',
+                                        'Martes',
+                                        'Miércoles',
+                                        'Jueves',
+                                        'Viernes',
+                                        'Sábado',
+                                        'Domingo',
+                                      ][s.weekday - 1]
+                                    }
+                                  </strong>
+                                  <span>
+                                    {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)}
+                                    {!s.approved
+                                      ? ' · Pendiente de publicar'
+                                      : !t.published
+                                        ? ' · Perfil privado'
+                                        : ''}
+                                  </span>
+                                </li>
+                              ))}
+                          </ul>
+                        ) : (
+                          <p>El profesor todavía no ha indicado sus horarios.</p>
+                        )}
                         <ActionForm endpoint="/api/admin/teacher" label="Aplicar cambio">
                           <input type="hidden" name="teacherId" value={String(t.id)} />
                           <label>
@@ -1129,8 +1132,9 @@ export function Dashboard({
                   <section className="panel">
                     <h2>Publicar un nuevo grupo</h2>
                     <p>
-                      Se validan doce ciclos de cuatro clases, sin solapamientos del profesor. La
-                      fecha de comienzo debe incluir la zona horaria mediante su desplazamiento UTC.
+                      El grupo empieza el mes siguiente, con cuatro clases por mes, horario fijo y
+                      entre dos y cuatro alumnos. El calendario se prepara para doce meses y la
+                      inscripción cierra 48 horas antes del día 1. Indica la hora de Madrid.
                     </p>
                     <ActionForm
                       endpoint="/api/admin/groups"
@@ -1141,7 +1145,10 @@ export function Dashboard({
                         level: f.get('level'),
                         language: f.get('language'),
                         capacity: Number(f.get('capacity')),
-                        firstAt: new Date(String(f.get('firstAt'))).toISOString(),
+                        firstAt: fromZonedTime(
+                          String(f.get('firstAt')),
+                          'Europe/Madrid',
+                        ).toISOString(),
                         duration: Number(f.get('duration')),
                         timezone: 'Europe/Madrid',
                         excludedDates: String(f.get('excludedDates') || '')
@@ -1155,7 +1162,13 @@ export function Dashboard({
                         <Select name="teacherId" required>
                           <option value="">Selecciona un profesor</option>
                           {data.teachers
-                            ?.filter((t) => t.status === 'active' && t.published)
+                            ?.filter(
+                              (t) =>
+                                t.status === 'active' &&
+                                t.published &&
+                                t.agreement_at &&
+                                t.verified_at,
+                            )
                             .map((t) => (
                               <option key={String(t.id)} value={String(t.id)}>
                                 {t.name}
@@ -1182,14 +1195,11 @@ export function Dashboard({
                         </label>
                       </div>
                       <label>
-                        Primera clase · fecha ISO con zona
-                        <input
-                          name="firstAt"
-                          required
-                          placeholder="2026-11-16T18:00:00+01:00"
-                          pattern=".+(Z|[+-][0-9]{2}:[0-9]{2})"
-                        />
-                        <small>Ejemplo en horario de invierno de Madrid: +01:00.</small>
+                        Primera clase · hora de Madrid
+                        <input name="firstAt" type="datetime-local" required />
+                        <small>
+                          Elige una fecha del mes siguiente. Se mantendrá el día y la hora semanal.
+                        </small>
                       </label>
                       <div className="form-row">
                         <label>
@@ -1198,7 +1208,7 @@ export function Dashboard({
                             type="number"
                             name="capacity"
                             min={2}
-                            max={12}
+                            max={4}
                             defaultValue={4}
                             required
                           />

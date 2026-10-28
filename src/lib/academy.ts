@@ -381,6 +381,13 @@ export async function dashboard(user: User) {
     reviews,
     campaigns,
     withdrawals,
+    teacherAvailability: await query<import('./teacher-availability').Availability>(
+      'SELECT * FROM teacher_availability ORDER BY teacher_id,weekday,start_time',
+    ),
+    billing: {
+      enabled: process.env.BILLING_ENABLED === 'true',
+      legalReady: process.env.LEGAL_READY === 'true',
+    },
     settlements: onCloudflare() ? await settlementOverview() : null,
     teaching: await teacherDashboard(user),
   };

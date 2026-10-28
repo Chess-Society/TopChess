@@ -9,5 +9,6 @@
 - Las credenciales de Git del equipo y el conector de GitHub pueden tener accesos distintos. Verificar permisos actuales sin mostrar tokens; no dar por imposible una subida por el resultado de un solo conector.
 - Validación según el cambio: `npm run typecheck`, pruebas relacionadas; integración con `npm run test:integration`. Para publicar código de la web: `npm run build:cloudflare` y `npm run cloudflare:deploy`.
 - Las pruebas simuladas no demuestran un cobro real ni una validación completa de Stripe. No repetir comprobaciones exitosas sin cambios relevantes.
+- Administración muestra el estado de activación de cobros y la disponibilidad de todo el equipo. Los nuevos grupos se limitan a 2–4 alumnos; la primera clase se introduce en hora de Madrid y se convierte en el formulario. No ofrecer edición de expedientes docentes ya cerrados.
 
 Detalle: [desarrollo local](../development.md), [Cloudflare](../cloudflare.md), [arquitectura](../architecture.md), [pruebas](../testing.md). Configuración de despliegue: `wrangler.jsonc`.
