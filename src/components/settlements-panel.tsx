@@ -20,10 +20,15 @@ export function SettlementsPanel({
         las clases realizadas hasta el 27. Las posteriores pasan al siguiente cierre.
       </p>
       {admin && (
-        <ActionForm endpoint="/api/admin/settlements-refresh" label="Actualizar importes">
-          <p className="small-text">
-            Comprueba el desglose, realiza la transferencia desde tu banco y después registra su
+        <ActionForm endpoint="/api/admin/settlements-refresh" label="Revisar pagos pendientes">
+          <p>
+            La web calcula lo que corresponde a cada profesor por sus clases impartidas y cobradas.
+            Tú haces la transferencia desde tu banco y después la marcas como realizada con su
             referencia.
+          </p>
+          <p className="small-text">
+            Este botón comprueba que los importes estén al día. No cobra al alumno ni envía dinero
+            al profesor.
           </p>
         </ActionForm>
       )}
@@ -46,7 +51,7 @@ export function SettlementsPanel({
           </article>
         ))
       )}
-      <h3>{admin ? 'Liquidaciones para transferir' : 'Historial de pagos'}</h3>
+      <h3>{admin ? 'Transferencias pendientes y realizadas' : 'Historial de pagos'}</h3>
       {!data?.payouts.length ? (
         <p>Las liquidaciones se preparan a partir del día 28.</p>
       ) : (

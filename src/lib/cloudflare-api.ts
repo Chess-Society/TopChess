@@ -176,7 +176,9 @@ export async function cloudflareApi(
   if (path === 'admin/settlements-refresh') {
     assert(canAdmin(user.role), 'Acceso reservado a TopChess.', 403);
     await new ManualSettlements().refresh();
-    return done('Importes actualizados con los pagos y clases registrados.');
+    return done(
+      'Importes revisados según las clases y cobros registrados. No se ha enviado dinero.',
+    );
   }
   if (path === 'admin/manual-payout') {
     assert(canAdmin(user.role), 'Acceso reservado a TopChess.', 403);

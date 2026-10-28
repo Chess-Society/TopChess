@@ -1,5 +1,6 @@
 'use client';
 import { ActionForm } from './action-form';
+import { TimePicker } from './time-picker';
 import type { Availability } from '@/lib/teacher-availability';
 const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 export function TeacherAvailabilityForm({ slots }: { slots: Availability[] }) {
@@ -34,14 +35,8 @@ export function TeacherAvailabilityForm({ slots }: { slots: Availability[] }) {
             ))}
           </fieldset>
           <div className="form-row">
-            <label>
-              Desde
-              <input type="time" name="start" step="1800" required />
-            </label>
-            <label>
-              Hasta
-              <input type="time" name="end" step="1800" required />
-            </label>
+            <TimePicker name="start" label="Desde" required />
+            <TimePicker name="end" label="Hasta" required />
           </div>
         </ActionForm>
       </section>

@@ -2,6 +2,7 @@
 import { Select } from '@/components/select';
 import { useState } from 'react';
 import { fromZonedTime } from 'date-fns-tz';
+import { TimePicker } from './time-picker';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -209,7 +210,7 @@ export function Dashboard({
         ['groups', 'Grupos y clases', CalendarDays],
         ['settlements', 'Pagos a profesores', CreditCard],
         ['reviews', 'Reseñas', MessageSquare],
-        ['campaigns', 'Campañas', ChartNoAxesCombined],
+        ['campaigns', 'Enlaces de difusión', ChartNoAxesCombined],
         ['withdrawals', 'Bajas y cambios', Users],
         ['incidents', 'Incidencias', Bell],
       ] as const)
@@ -1146,7 +1147,7 @@ export function Dashboard({
                         language: f.get('language'),
                         capacity: Number(f.get('capacity')),
                         firstAt: fromZonedTime(
-                          String(f.get('firstAt')),
+                          `${f.get('firstAtDate')}T${f.get('firstAtTime')}`,
                           'Europe/Madrid',
                         ).toISOString(),
                         duration: Number(f.get('duration')),
@@ -1195,12 +1196,17 @@ export function Dashboard({
                         </label>
                       </div>
                       <label>
-                        Primera clase · hora de Madrid
-                        <input name="firstAt" type="datetime-local" required />
-                        <small>
-                          Elige una fecha del mes siguiente. Se mantendrá el día y la hora semanal.
-                        </small>
+                        Fecha de la primera clase
+                        <input name="firstAtDate" type="date" required />
                       </label>
+                      <TimePicker
+                        name="firstAtTime"
+                        label="Hora de la primera clase · Madrid"
+                        required
+                      />
+                      <p className="small-text">
+                        Elige una fecha del mes siguiente. Se mantendrá el día y la hora semanal.
+                      </p>
                       <div className="form-row">
                         <label>
                           Capacidad
@@ -1294,11 +1300,16 @@ export function Dashboard({
               {tab === 'campaigns' && (
                 <>
                   <section className="panel">
-                    <h2>Origen de las matrículas</h2>
+                    <h2>Enlaces para dar a conocer TopChess</h2>
+                    <p>
+                      Crea un enlace para compartir en WhatsApp, un club o tus redes y ver cuántas
+                      solicitudes llegan desde él. Esta sección es opcional y no contrata publicidad
+                      ni genera gastos.
+                    </p>
                     <Table
                       rows={data.campaigns || []}
                       columns={[
-                        ['name', 'Campaña'],
+                        ['name', 'Enlace'],
                         ['city', 'Ciudad'],
                         ['channel', 'Canal'],
                         ['requests', 'Solicitudes'],
@@ -1316,8 +1327,8 @@ export function Dashboard({
                     </p>
                   </section>
                   <section className="panel">
-                    <h2>Crear campaña</h2>
-                    <ActionForm endpoint="/api/admin/campaign" label="Crear enlace de campaña">
+                    <h2>Crear un enlace para compartir</h2>
+                    <ActionForm endpoint="/api/admin/campaign" label="Crear enlace">
                       <label>
                         Nombre
                         <input name="name" required minLength={3} maxLength={100} />
