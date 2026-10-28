@@ -30,10 +30,12 @@ export default async function TeacherDetail({ params }: { params: Promise<{ id: 
         </div>
       </section>
       <div className="profile-about">
-        <div>
-          <h2>Una forma de enseñar</h2>
-          <p>{t.bio}</p>
-        </div>
+        {t.bio?.trim() && (
+          <div>
+            <h2>Una forma de enseñar</h2>
+            <p>{t.bio}</p>
+          </div>
+        )}
         <div>
           <h3>Idiomas</h3>
           <p>{t.languages.join(' · ')}</p>

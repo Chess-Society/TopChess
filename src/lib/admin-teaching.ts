@@ -5,7 +5,7 @@ import { atomic, d1Query, auditStatement } from './cloudflare';
 
 const fields = z.object({
   headline: z.string().trim().min(3).max(150),
-  bio: z.string().trim().min(80).max(3000),
+  bio: z.string().trim().max(3000).default(''),
   languages: z.string().trim().min(2).max(200),
   levels: z.string().trim().min(2).max(200),
   approved: z.literal(true),

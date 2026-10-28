@@ -658,13 +658,11 @@ export function Dashboard({
                       />
                     </label>
                     <label>
-                      Sobre mí
+                      Sobre mí (opcional)
                       <textarea
                         name="bio"
                         defaultValue={String(data.profile?.bio || '')}
-                        minLength={80}
                         maxLength={3000}
-                        required
                       />
                     </label>
                     <label>

@@ -23,9 +23,21 @@ test('el administrador puede ser profesor sin perder su rol ni duplicar el perfi
       verified_at: new Date(),
     };
     const deps = { query: store.query, write: store.write };
-    await saveAdminTeachingProfile(user, { ...profile, teacherId: store.teacher }, deps);
+    await saveAdminTeachingProfile(
+      user,
+      { ...profile, bio: undefined, teacherId: store.teacher },
+      deps,
+    );
+    assert.equal(
+      (await store.query('SELECT bio FROM teacher_profiles WHERE user_id=$1', [user.id]))[0].bio,
+      '',
+    );
     await store.query('UPDATE teacher_profiles SET teacher_bps=6500 WHERE user_id=$1', [user.id]);
-    await saveAdminTeachingProfile(user, { ...profile, published: false }, deps);
+    await saveAdminTeachingProfile(
+      user,
+      { ...profile, bio: 'Clases cercanas.', published: false },
+      deps,
+    );
     assert.equal(
       (await store.query('SELECT role FROM users WHERE id=$1', [user.id]))[0].role,
       'superadmin',
@@ -34,6 +46,7 @@ test('el administrador puede ser profesor sin perder su rol ni duplicar el perfi
     assert.equal(rows.length, 1);
     assert.equal(rows[0].published, false);
     assert.equal(rows[0].teacher_bps, 6500);
+    assert.equal(rows[0].bio, 'Clases cercanas.');
     assert.ok(rows[0].agreement_at && rows[0].verified_at);
     assert.deepEqual(rows[0].languages, ['Español', 'Inglés']);
     assert.equal(
