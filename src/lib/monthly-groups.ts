@@ -14,7 +14,7 @@ type Dependencies = {
 const id = z.uuid();
 async function validateOwnSchedule(
   user: User,
-  d: { teacherId: string; firstAt: string; duration: number },
+  d: { teacherId: string; firstAt: string; duration: number; availabilityId?: string },
   deps: Dependencies,
 ) {
   if (!deps.selfService && canAdmin(user.role)) return;
@@ -24,14 +24,19 @@ async function validateOwnSchedule(
   const day = Number(formatInTimeZone(first, BILLING_TIMEZONE, 'i'));
   const startText = formatInTimeZone(first, BILLING_TIMEZONE, 'HH:mm'),
     endText = formatInTimeZone(end, BILLING_TIMEZONE, 'HH:mm');
-  const slots = await deps.query<{ start_time: string; end_time: string }>(
-    'SELECT start_time,end_time FROM teacher_availability WHERE teacher_id=$1 AND weekday=$2 AND approved=true',
+  const slots = await deps.query<{ id: string; start_time: string; end_time: string }>(
+    'SELECT id,start_time,end_time FROM teacher_availability WHERE teacher_id=$1 AND weekday=$2 AND approved=true',
     [user.id, day],
   );
   assert(
     formatInTimeZone(first, BILLING_TIMEZONE, 'yyyy-MM-dd') ===
       formatInTimeZone(end, BILLING_TIMEZONE, 'yyyy-MM-dd') &&
-      slots.some((s) => s.start_time.slice(0, 5) <= startText && s.end_time.slice(0, 5) >= endText),
+      slots.some(
+        (s) =>
+          (!d.availabilityId || s.id === d.availabilityId) &&
+          s.start_time.slice(0, 5) <= startText &&
+          s.end_time.slice(0, 5) >= endText,
+      ),
     'La clase debe quedar dentro de tu disponibilidad publicada. Revisa tus horarios antes de crear el grupo.',
     409,
   );
@@ -50,6 +55,7 @@ export async function publishMonthlyGroup(
   const d = z
     .object({
       teacherId: id,
+      availabilityId: id.optional(),
       title: z.string().min(5).max(120),
       level: z.enum(['Principiante', 'Intermedio', 'Avanzado']),
       language: z.string().min(2).max(50),

@@ -83,6 +83,10 @@ test('se impide publicar para otro docente, fuera de disponibilidad, sin autoriz
     await assert.rejects(publishMonthlyGroup(store.students[0], input, deps), /reservado/);
     await assert.rejects(publishMonthlyGroup(user, { ...input, capacity: 5 }, deps));
     await assert.rejects(
+      publishMonthlyGroup(user, { ...input, availabilityId: randomUUID() }, deps),
+      /disponibilidad/,
+    );
+    await assert.rejects(
       publishMonthlyGroup(
         user,
         {

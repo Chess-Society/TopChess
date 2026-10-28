@@ -36,7 +36,8 @@ export type DashboardData = {
   applications?: Row[];
   profile?: Row;
   groups?: Row[];
-  availability?: Row[];
+  availability?: Availability[];
+  groupBusySessions?: import('@/lib/group-options').BusySession[];
   income?: Row;
   stats?: Row;
   teachers?: Row[];
@@ -791,7 +792,12 @@ export function Dashboard({
                 <>
                   {data.profile?.status === 'active' && data.profile?.published ? (
                     data.availability?.some((s) => s.approved) ? (
-                      <GroupForm teacherId={user.id} />
+                      <GroupForm
+                        teacherId={user.id}
+                        availability={data.availability}
+                        busySessions={data.groupBusySessions}
+                        onEditAvailability={() => setTab('availability')}
+                      />
                     ) : (
                       <section className="panel">
                         <h2>Publica tus horarios primero</h2>

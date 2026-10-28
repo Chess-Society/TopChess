@@ -282,34 +282,43 @@ export async function createReview(user: User, id: string, rating: number, comme
   });
 }
 async function teacherDashboard(user: User) {
-  const [profile, groups, sessions, availability, income, roster] = await Promise.all([
-    query(
-      'SELECT headline,bio,languages,levels,status,published,teacher_bps,cycle,promotions_frozen FROM teacher_profiles WHERE user_id=$1',
-      [user.id],
-    ),
-    query(
-      `SELECT g.id,g.title,g.level,g.status,g.capacity,g.first_at,(SELECT count(*)::int FROM group_enrollments e WHERE e.group_id=g.id AND e.status IN ('active','leaving','awaiting_payment','reserved')) AS students FROM groups g WHERE g.teacher_id=$1`,
-      [user.id],
-    ),
-    query(
-      "SELECT s.id,s.starts_at,s.ends_at,s.status,g.title,s.video_url FROM sessions s JOIN groups g ON g.id=s.group_id WHERE s.teacher_id=$1 AND s.starts_at>now()-interval '7 days' ORDER BY s.starts_at LIMIT 24",
-      [user.id],
-    ),
-    query('SELECT * FROM teacher_availability WHERE teacher_id=$1', [user.id]),
-    query(
-      "SELECT coalesce(sum(le.amount_cents),0)::int AS allocated FROM ledger_entries le JOIN payments p ON p.id=le.payment_id JOIN subscriptions sub ON sub.id=p.subscription_id JOIN group_enrollments e ON e.id=sub.enrollment_id JOIN groups g ON g.id=e.group_id WHERE g.teacher_id=$1 AND le.kind='teacher_allocation'",
-      [user.id],
-    ),
-    query(
-      "SELECT DISTINCT u.id AS student_id,u.name,g.id AS group_id,g.title,g.level,e.status FROM users u JOIN group_enrollments e ON e.student_id=u.id JOIN groups g ON g.id=e.group_id WHERE g.teacher_id=$1 AND e.status IN ('reserved','awaiting_payment','active','leaving')",
-      [user.id],
-    ),
-  ]);
+  const [profile, groups, sessions, availability, income, roster, groupBusySessions] =
+    await Promise.all([
+      query(
+        'SELECT headline,bio,languages,levels,status,published,teacher_bps,cycle,promotions_frozen FROM teacher_profiles WHERE user_id=$1',
+        [user.id],
+      ),
+      query(
+        `SELECT g.id,g.title,g.level,g.status,g.capacity,g.first_at,(SELECT count(*)::int FROM group_enrollments e WHERE e.group_id=g.id AND e.status IN ('active','leaving','awaiting_payment','reserved')) AS students FROM groups g WHERE g.teacher_id=$1`,
+        [user.id],
+      ),
+      query(
+        "SELECT s.id,s.starts_at,s.ends_at,s.status,g.title,s.video_url FROM sessions s JOIN groups g ON g.id=s.group_id WHERE s.teacher_id=$1 AND s.starts_at>now()-interval '7 days' ORDER BY s.starts_at LIMIT 24",
+        [user.id],
+      ),
+      query<import('./teacher-availability').Availability>(
+        'SELECT * FROM teacher_availability WHERE teacher_id=$1',
+        [user.id],
+      ),
+      query(
+        "SELECT coalesce(sum(le.amount_cents),0)::int AS allocated FROM ledger_entries le JOIN payments p ON p.id=le.payment_id JOIN subscriptions sub ON sub.id=p.subscription_id JOIN group_enrollments e ON e.id=sub.enrollment_id JOIN groups g ON g.id=e.group_id WHERE g.teacher_id=$1 AND le.kind='teacher_allocation'",
+        [user.id],
+      ),
+      query(
+        "SELECT DISTINCT u.id AS student_id,u.name,g.id AS group_id,g.title,g.level,e.status FROM users u JOIN group_enrollments e ON e.student_id=u.id JOIN groups g ON g.id=e.group_id WHERE g.teacher_id=$1 AND e.status IN ('reserved','awaiting_payment','active','leaving')",
+        [user.id],
+      ),
+      query<import('./group-options').BusySession>(
+        "SELECT starts_at,ends_at FROM sessions WHERE teacher_id=$1 AND status!='cancelled' AND ends_at>now()",
+        [user.id],
+      ),
+    ]);
   return {
     profile: profile[0],
     groups,
     sessions,
     availability,
+    groupBusySessions,
     income: income[0],
     roster,
     settlements: onCloudflare() ? await settlementOverview(user.id) : null,

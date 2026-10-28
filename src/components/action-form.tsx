@@ -9,6 +9,7 @@ export function ActionForm({
   multipart = false,
   transform,
   successRedirect,
+  disabled = false,
 }: {
   endpoint: string;
   children: React.ReactNode;
@@ -16,6 +17,7 @@ export function ActionForm({
   multipart?: boolean;
   transform?: (data: FormData) => Record<string, unknown>;
   successRedirect?: string;
+  disabled?: boolean;
 }) {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
@@ -23,7 +25,7 @@ export function ActionForm({
   const router = useRouter();
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || disabled) return;
     setBusy(true);
     setMessage('');
     const form = new FormData(event.currentTarget);
@@ -60,7 +62,7 @@ export function ActionForm({
   return (
     <form onSubmit={submit} className="action-form">
       {children}
-      <button className="button" type="submit" disabled={busy}>
+      <button className="button" type="submit" disabled={busy || disabled}>
         {busy ? (
           <>
             <LoaderCircle className="spin" size={18} />

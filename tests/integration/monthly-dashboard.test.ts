@@ -76,6 +76,7 @@ test('los cinco paneles ejecutan las consultas nuevas con el adaptador D1 y los 
     assert.equal(adminData.teaching?.groups?.length, 1);
     assert.equal(adminData.teaching?.profile?.headline, 'Prueba propia');
     assert.ok(adminData.teaching?.sessions?.length);
+    assert.equal(adminData.teaching?.groupBusySessions?.length, 48);
     assert.equal(adminData.teacherAvailability?.length, 2);
     assert.equal(adminData.teaching?.availability?.length, 1);
     assert.equal(adminData.teaching?.availability?.[0].teacher_id, store.admin);
