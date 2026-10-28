@@ -54,6 +54,8 @@ test('los cinco paneles ejecutan las consultas nuevas con el adaptador D1 y los 
     let adminData = await dashboard(adminUser);
     assert.ok('teaching' in adminData);
     assert.equal(adminData.groups?.length, 1);
+    assert.equal(adminData.groupRoster?.length, 2);
+    assert.equal(adminData.schoolSessions?.length, 48);
     assert.equal(adminData.teaching?.groups?.length, 0);
     await store.query(
       "INSERT INTO teacher_profiles(user_id,headline,bio,published,agreement_at,verified_at) VALUES($1,'Prueba propia','Perfil propio',1,now(),now())",
@@ -77,6 +79,10 @@ test('los cinco paneles ejecutan las consultas nuevas con el adaptador D1 y los 
     assert.equal(adminData.teacherAvailability?.length, 2);
     assert.equal(adminData.teaching?.availability?.length, 1);
     assert.equal(adminData.teaching?.availability?.[0].teacher_id, store.admin);
+    assert.equal(adminData.teaching?.roster?.length, 2);
+    const unrelatedTeacher = await dashboard({ ...adminUser, id: store.teacher, role: 'teacher' });
+    assert.ok('roster' in unrelatedTeacher);
+    assert.equal(unrelatedTeacher.roster?.length, 0);
     assert.equal(typeof adminData.billing?.enabled, 'boolean');
     assert.equal(typeof adminData.billing?.legalReady, 'boolean');
     await store.query("UPDATE groups SET status='active' WHERE id=$1", [store.group]);

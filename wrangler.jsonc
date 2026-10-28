@@ -20,6 +20,7 @@
     "BILLING_ENABLED": "false",
     "LEGAL_READY": "false",
     "PAYMENT_PROVIDER": "stripe",
+    "VIDEO_ALLOWED_HOSTS": "meet.google.com,meet.jit.si,zoom.us,*.zoom.us",
     "STRIPE_PRICE_ID": "price_1UVbMxRBnPDD6EfR1dsthxFF",
     "STRIPE_TAX_RATE_ID": "txr_1UVbQ0RBnPDD6EfRV6xlbv1F",
     "LICHESS_CLIENT_ID": "topchess-global.kiroshirp.workers.dev",

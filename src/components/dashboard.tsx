@@ -1,8 +1,7 @@
 'use client';
 import { Select } from '@/components/select';
 import { useState } from 'react';
-import { fromZonedTime } from 'date-fns-tz';
-import { TimePicker } from './time-picker';
+import { GroupForm } from './group-form';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -25,6 +24,8 @@ import type { Availability } from '@/lib/teacher-availability';
 import { money, type Role } from '@/lib/domain';
 type Row = { [key: string]: string | number | boolean | null | undefined };
 export type DashboardData = {
+  groupRoster?: Row[];
+  schoolSessions?: Row[];
   teacherAvailability?: Availability[];
   billing?: { enabled: boolean; legalReady: boolean };
   teaching?: DashboardData;
@@ -114,8 +115,12 @@ function Table({ rows, columns }: { rows: Row[]; columns: [string, string][] }) 
             <tr key={String(r.id || i)}>
               {columns.map(([key]) => (
                 <td key={key}>
-                  {key === 'status' ? (
-                    <Status value={r[key]} />
+                  {key === 'status' || key.endsWith('_status') ? (
+                    key === 'subscription_status' && !r[key] ? (
+                      'Sin contratar'
+                    ) : (
+                      <Status value={r[key]} />
+                    )
                   ) : key.endsWith('_at') || key === 'effective_at' ? (
                     r[key] ? (
                       new Date(String(r[key])).toLocaleDateString('es-ES', {
@@ -202,6 +207,7 @@ export function Dashboard({
     student = user.role === 'student';
   const data = adminAccount && teacher ? initialData.teaching || {} : initialData;
   const [tab, setTab] = useState('overview');
+  const [groupFilter, setGroupFilter] = useState('all');
   const tabs = admin
     ? ([
         ['overview', 'Vista general', LayoutDashboard],
@@ -785,17 +791,53 @@ export function Dashboard({
               )}
               {tab === 'groups' && (
                 <>
+                  {data.profile?.status === 'active' && data.profile?.published ? (
+                    data.availability?.some((s) => s.approved) ? (
+                      <GroupForm teacherId={user.id} />
+                    ) : (
+                      <section className="panel">
+                        <h2>Publica tus horarios primero</h2>
+                        <p>
+                          Añade tu disponibilidad para poder crear un grupo dentro de tus horas de
+                          clase.
+                        </p>
+                        <button className="button" onClick={() => setTab('availability')}>
+                          Añadir mis horarios
+                        </button>
+                      </section>
+                    )
+                  ) : (
+                    <section className="panel">
+                      <h2>Publicar tus grupos</h2>
+                      <p>
+                        Completa tu ficha y espera a que TopChess la autorice y publique. Después
+                        podrás crear tus propios grupos.
+                      </p>
+                    </section>
+                  )}
                   <section className="panel">
                     <h2>Tus grupos</h2>
+                    <p>
+                      Los alumnos eligen un grupo y reservan su plaza desde la web. Tú consultas las
+                      matrículas y el calendario; TopChess supervisa la escuela.
+                    </p>
                     <Table
                       rows={data.groups || []}
                       columns={[
                         ['title', 'Grupo'],
                         ['level', 'Nivel'],
                         ['students', 'Alumnos'],
+                        ['first_at', 'Primera clase'],
                         ['status', 'Estado'],
                       ]}
                     />
+                    {(data.groups || []).map((g) => (
+                      <p key={String(g.id)}>
+                        <Link className="text-link" href={'/clases/' + g.id}>
+                          Ver ficha pública de {g.title}
+                        </Link>
+                      </p>
+                    ))}
                   </section>
                   <section className="panel">
                     <h2>Alumnos asignados</h2>
@@ -805,12 +847,42 @@ export function Dashboard({
                         ['name', 'Alumno'],
                         ['title', 'Grupo'],
                         ['level', 'Nivel'],
+                        ['status', 'Matrícula'],
                       ]}
                     />
                     <p className="private-note">
                       Solo se muestran los datos necesarios para impartir las clases.
                     </p>
                   </section>
+                  {!!data.groups?.length && (
+                    <section className="panel">
+                      <h2>Enlace privado de tus clases</h2>
+                      <p>
+                        Añade tu enlace de Meet, Zoom o Jitsi. Se aplicará a las próximas clases del
+                        grupo y solo se mostrará a sus alumnos con acceso autorizado.
+                      </p>
+                      <ActionForm
+                        endpoint="/api/teacher/group-video"
+                        label="Guardar enlace del grupo"
+                      >
+                        <label>
+                          Mi grupo
+                          <Select name="groupId" required>
+                            <option value="">Selecciona un grupo</option>
+                            {data.groups.map((g) => (
+                              <option key={String(g.id)} value={String(g.id)}>
+                                {g.title}
+                              </option>
+                            ))}
+                          </Select>
+                        </label>
+                        <label>
+                          Enlace de la videollamada
+                          <input name="videoUrl" type="url" required maxLength={2000} />
+                        </label>
+                      </ActionForm>
+                    </section>
+                  )}
                 </>
               )}
               {tab === 'availability' && (
@@ -1119,124 +1191,71 @@ export function Dashboard({
               {tab === 'groups' && (
                 <>
                   <section className="panel">
-                    <h2>Grupos de la academia</h2>
+                    <h2>Supervisión de grupos y clases</h2>
+                    <p>
+                      Los profesores publican sus grupos y los alumnos reservan desde la web. Aquí
+                      ves el conjunto de la escuela y puedes intervenir cuando sea necesario.
+                    </p>
+                    <label>
+                      Filtrar por grupo
+                      <Select
+                        value={groupFilter}
+                        onValueChange={setGroupFilter}
+                        aria-label="Filtrar por grupo"
+                      >
+                        <option value="all">Todos los grupos</option>
+                        {data.groups?.map((g) => (
+                          <option key={String(g.id)} value={String(g.id)}>
+                            {g.title} · {g.teacher_name}
+                          </option>
+                        ))}
+                      </Select>
+                    </label>
                     <Table
-                      rows={data.groups || []}
+                      rows={(data.groups || []).filter(
+                        (g) => groupFilter === 'all' || g.id === groupFilter,
+                      )}
                       columns={[
                         ['title', 'Grupo'],
                         ['teacher_name', 'Profesor'],
+                        ['students', 'Alumnos'],
+                        ['capacity', 'Plazas totales'],
                         ['first_at', 'Inicio'],
                         ['status', 'Estado'],
                       ]}
                     />
+                    <h3>Alumnos y matrículas</h3>
+                    <Table
+                      rows={(data.groupRoster || []).filter(
+                        (e) => groupFilter === 'all' || e.group_id === groupFilter,
+                      )}
+                      columns={[
+                        ['name', 'Alumno'],
+                        ['title', 'Grupo'],
+                        ['teacher_name', 'Profesor'],
+                        ['status', 'Matrícula'],
+                        ['subscription_status', 'Suscripción'],
+                      ]}
+                    />
+                    <h3>Próximas clases de la escuela</h3>
+                    <Sessions
+                      items={(data.schoolSessions || []).filter(
+                        (s) => groupFilter === 'all' || s.group_id === groupFilter,
+                      )}
+                    />
                   </section>
-                  <section className="panel">
-                    <h2>Publicar un nuevo grupo</h2>
-                    <p>
-                      El grupo empieza el mes siguiente, con cuatro clases por mes, horario fijo y
-                      entre dos y cuatro alumnos. El calendario se prepara para doce meses y la
-                      inscripción cierra 48 horas antes del día 1. Indica la hora de Madrid.
-                    </p>
-                    <ActionForm
-                      endpoint="/api/admin/groups"
-                      label="Validar calendario y publicar"
-                      transform={(f) => ({
-                        teacherId: f.get('teacherId'),
-                        title: f.get('title'),
-                        level: f.get('level'),
-                        language: f.get('language'),
-                        capacity: Number(f.get('capacity')),
-                        firstAt: fromZonedTime(
-                          `${f.get('firstAtDate')}T${f.get('firstAtTime')}`,
-                          'Europe/Madrid',
-                        ).toISOString(),
-                        duration: Number(f.get('duration')),
-                        timezone: 'Europe/Madrid',
-                        excludedDates: String(f.get('excludedDates') || '')
-                          .split(',')
-                          .map((x) => x.trim())
-                          .filter(Boolean),
-                      })}
-                    >
-                      <label>
-                        Profesor aprobado
-                        <Select name="teacherId" required>
-                          <option value="">Selecciona un profesor</option>
-                          {data.teachers
-                            ?.filter(
-                              (t) =>
-                                t.status === 'active' &&
-                                t.published &&
-                                t.agreement_at &&
-                                t.verified_at,
-                            )
-                            .map((t) => (
-                              <option key={String(t.id)} value={String(t.id)}>
-                                {t.name}
-                              </option>
-                            ))}
-                        </Select>
-                      </label>
-                      <label>
-                        Nombre del grupo
-                        <input name="title" minLength={5} maxLength={120} required />
-                      </label>
-                      <div className="form-row">
-                        <label>
-                          Nivel
-                          <Select name="level">
-                            <option>Principiante</option>
-                            <option>Intermedio</option>
-                            <option>Avanzado</option>
-                          </Select>
-                        </label>
-                        <label>
-                          Idioma
-                          <input name="language" defaultValue="Español" required />
-                        </label>
-                      </div>
-                      <label>
-                        Fecha de la primera clase
-                        <input name="firstAtDate" type="date" required />
-                      </label>
-                      <TimePicker
-                        name="firstAtTime"
-                        label="Hora de la primera clase · Madrid"
-                        required
-                      />
-                      <p className="small-text">
-                        Elige una fecha del mes siguiente. Se mantendrá el día y la hora semanal.
-                      </p>
-                      <div className="form-row">
-                        <label>
-                          Capacidad
-                          <input
-                            type="number"
-                            name="capacity"
-                            min={2}
-                            max={4}
-                            defaultValue={4}
-                            required
-                          />
-                        </label>
-                        <label>
-                          Duración (min)
-                          <input
-                            type="number"
-                            name="duration"
-                            min={30}
-                            max={180}
-                            defaultValue={60}
-                            required
-                          />
-                        </label>
-                      </div>
-                      <label>
-                        Festivos y excepciones · YYYY-MM-DD, separados por coma
-                        <input name="excludedDates" placeholder="2026-12-25, 2027-01-01" />
-                      </label>
-                    </ActionForm>
-                  </section>
+                  <details>
+                    <summary>Crear un grupo manualmente (opcional)</summary>
+                    <GroupForm
+                      admin
+                      teachers={(data.teachers || [])
+                        .filter(
+                          (t) =>
+                            t.status === 'active' && t.published && t.agreement_at && t.verified_at,
+                        )
+                        .map((t) => ({ id: String(t.id), name: String(t.name) }))}
+                    />
+                  </details>
                   <section className="panel">
                     <h2>Enlace de videoclase</h2>
                     <ActionForm endpoint="/api/admin/session" label="Guardar enlace privado">

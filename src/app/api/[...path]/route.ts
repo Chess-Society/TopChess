@@ -1,4 +1,5 @@
 import { TeacherAvailability } from '@/lib/teacher-availability';
+import { validateClassVideo } from '@/lib/class-video';
 import { z, ZodError } from 'zod';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { query, transaction } from '@/lib/db';
@@ -495,14 +496,7 @@ async function api(request: Request, context: { params: Promise<{ path: string[]
   }
   if (path === 'admin/session') {
     const d = z.object({ sessionId: id, videoUrl: z.url() }).parse(await body(request));
-    const url = new URL(d.videoUrl);
-    assert(
-      url.protocol === 'https:' &&
-        !url.username &&
-        !url.password &&
-        process.env.VIDEO_ALLOWED_HOSTS?.split(',').includes(url.hostname),
-      'El enlace debe usar un dominio HTTPS autorizado.',
-    );
+    validateClassVideo(d.videoUrl);
     await transaction(async (c) => {
       const r = await c.query('UPDATE sessions SET video_url=$2 WHERE id=$1 RETURNING id', [
         d.sessionId,

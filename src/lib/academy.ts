@@ -288,7 +288,7 @@ async function teacherDashboard(user: User) {
       [user.id],
     ),
     query(
-      `SELECT g.id,g.title,g.level,g.status,g.capacity,(SELECT count(*)::int FROM group_enrollments e WHERE e.group_id=g.id AND e.status IN ('active','leaving','awaiting_payment','reserved')) AS students FROM groups g WHERE g.teacher_id=$1`,
+      `SELECT g.id,g.title,g.level,g.status,g.capacity,g.first_at,(SELECT count(*)::int FROM group_enrollments e WHERE e.group_id=g.id AND e.status IN ('active','leaving','awaiting_payment','reserved')) AS students FROM groups g WHERE g.teacher_id=$1`,
       [user.id],
     ),
     query(
@@ -301,7 +301,7 @@ async function teacherDashboard(user: User) {
       [user.id],
     ),
     query(
-      "SELECT DISTINCT u.id AS student_id,u.name,g.title,g.level FROM users u JOIN group_enrollments e ON e.student_id=u.id JOIN groups g ON g.id=e.group_id WHERE g.teacher_id=$1 AND e.status IN ('active','leaving')",
+      "SELECT DISTINCT u.id AS student_id,u.name,g.id AS group_id,g.title,g.level,e.status FROM users u JOIN group_enrollments e ON e.student_id=u.id JOIN groups g ON g.id=e.group_id WHERE g.teacher_id=$1 AND e.status IN ('reserved','awaiting_payment','active','leaving')",
       [user.id],
     ),
   ]);
@@ -357,7 +357,7 @@ export async function dashboard(user: User) {
         'SELECT t.user_id AS id,u.name,t.status,t.published,t.teacher_bps,t.cycle,t.agreement_at,t.verified_at FROM teacher_profiles t JOIN users u ON u.id=t.user_id',
       ),
       query(
-        'SELECT g.id,g.title,g.status,g.level,g.capacity,g.first_at,u.name AS teacher_name FROM groups g JOIN users u ON u.id=g.teacher_id ORDER BY first_at DESC',
+        "SELECT g.id,g.title,g.status,g.level,g.capacity,g.first_at,u.name AS teacher_name,(SELECT count(*) FROM group_enrollments e WHERE e.group_id=g.id AND e.status IN ('reserved','awaiting_payment','active','leaving')) AS students FROM groups g JOIN users u ON u.id=g.teacher_id ORDER BY first_at DESC",
       ),
       query(
         "SELECT i.id,i.kind,i.description,i.status,i.created_at,g.title FROM incidents i LEFT JOIN groups g ON g.id=i.group_id WHERE i.status='open' ORDER BY i.created_at DESC",
@@ -372,8 +372,18 @@ export async function dashboard(user: User) {
         'SELECT w.id,w.kind,w.reason,w.effective_at,u.name,g.title FROM student_withdrawals w JOIN group_enrollments e ON e.id=w.enrollment_id JOIN users u ON u.id=e.student_id JOIN groups g ON g.id=e.group_id ORDER BY w.created_at DESC LIMIT 50',
       ),
     ]);
+  const [groupRoster, schoolSessions] = await Promise.all([
+    query(
+      "SELECT e.id,e.group_id,e.status,u.name,g.title,t.name AS teacher_name,sub.status AS subscription_status FROM group_enrollments e JOIN users u ON u.id=e.student_id JOIN groups g ON g.id=e.group_id JOIN users t ON t.id=g.teacher_id LEFT JOIN subscriptions sub ON sub.enrollment_id=e.id WHERE e.status IN ('reserved','awaiting_payment','active','leaving') ORDER BY g.title,u.name",
+    ),
+    query(
+      "SELECT s.id,s.group_id,s.starts_at,s.ends_at,s.status,g.title,u.name AS teacher_name FROM sessions s JOIN groups g ON g.id=s.group_id JOIN users u ON u.id=s.teacher_id WHERE s.starts_at>now()-interval '1 day' ORDER BY s.starts_at LIMIT 200",
+    ),
+  ]);
   return {
     stats: stats[0],
+    groupRoster,
+    schoolSessions,
     applications,
     teachers,
     groups,

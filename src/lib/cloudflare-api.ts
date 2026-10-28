@@ -7,10 +7,12 @@ import { realNameSchema } from './lichess';
 import { dashboard } from './academy';
 import { saveCv, getCv } from './storage';
 import { monthlyBilling, billingDetails } from './monthly-billing';
-import { monthlyCalendar, sameBillingMonth, BILLING_TIMEZONE } from './monthly-calendar';
+import { sameBillingMonth } from './monthly-calendar';
 import { ManualSettlements } from './manual-settlements';
 import { normalizeIban, encryptIban, decryptIban } from './teacher-bank';
 import { billingPreflight } from './billing-preflight';
+import { publishMonthlyGroup } from './monthly-groups';
+import { setOwnGroupVideo, validateClassVideo } from './class-video';
 import { TeacherAvailability } from './teacher-availability';
 import { saveAdminTeachingProfile, requireTeachingProfile } from './admin-teaching';
 const id = z.uuid();
@@ -447,73 +449,23 @@ export async function cloudflareApi(
     ]);
     return done('Incidencia registrada.');
   }
+  if (path === 'teacher/groups') {
+    const raw = await data(request);
+    await publishMonthlyGroup(
+      user,
+      { ...raw, teacherId: user.id },
+      { query: d1Query, write: atomic, now: () => new Date(), selfService: true },
+    );
+    return done('Grupo publicado. Los alumnos ya pueden consultar el calendario y reservar plaza.');
+  }
+  if (path === 'teacher/group-video') {
+    await setOwnGroupVideo(user, await data(request));
+    return done('Enlace privado guardado para las próximas clases de tu grupo.');
+  }
   assert(canAdmin(user.role), 'Acceso reservado a administración.', 403);
   if (path === 'admin/groups') {
-    const d = z
-      .object({
-        teacherId: id,
-        title: z.string().min(5).max(120),
-        level: z.enum(['Principiante', 'Intermedio', 'Avanzado']),
-        language: z.string().min(2).max(50),
-        capacity: z.number().int().min(2).max(4),
-        firstAt: z.iso.datetime(),
-        duration: z.number().int().min(30).max(180),
-        timezone: z.string(),
-        excludedDates: z.array(z.iso.date()).default([]),
-      })
-      .parse(await data(request));
-    const [teacher] = await d1Query(
-      "SELECT 1 FROM teacher_profiles WHERE user_id=$1 AND status='active' AND published=1 AND agreement_at IS NOT NULL AND verified_at IS NOT NULL",
-      [d.teacherId],
-    );
-    assert(teacher, 'El profesor debe estar activo, verificado y autorizado.');
-    const first = new Date(d.firstAt);
-    assert(d.timezone === BILLING_TIMEZONE, 'El calendario mensual se organiza en Europe/Madrid.');
-    assert(sameBillingMonth(first), 'Los grupos nuevos empiezan el mes siguiente.');
-    const calendar = monthlyCalendar(first, d.duration, d.excludedDates);
-    const deadline = new Date(calendar[0].start.getTime() - 48 * 3600_000);
-    assert(
-      deadline > new Date(),
-      'La matrícula debe cerrar 48 horas antes del día 1. Publica un grupo para el siguiente mes.',
-    );
-    assert(
-      first.getTime() > Date.now() + 48 * 3600_000,
-      'El inicio debe ser posterior al cierre de inscripción.',
-    );
-    const groupId = randomUUID();
-    const statements: Statement[] = [
-      {
-        sql: "INSERT INTO groups(id,teacher_id,title,level,language,capacity,first_at,timezone,duration,enrollment_deadline,excluded_dates,status,billing_model) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'published','calendar_month')",
-        values: [
-          groupId,
-          d.teacherId,
-          d.title,
-          d.level,
-          d.language,
-          d.capacity,
-          first,
-          d.timezone,
-          d.duration,
-          deadline,
-          d.excludedDates,
-        ],
-      },
-    ];
-    for (const [i, { start, end, sessions }] of calendar.entries()) {
-      const cycleId = randomUUID();
-      statements.push({
-        sql: 'INSERT INTO billing_cycles(id,group_id,sequence,starts_at,ends_at,approved) VALUES($1,$2,$3,$4,$5,1)',
-        values: [cycleId, groupId, i + 1, start, end],
-      });
-      for (const s of sessions)
-        statements.push({
-          sql: 'INSERT INTO sessions(group_id,cycle_id,teacher_id,starts_at,ends_at) VALUES($1,$2,$3,$4,$5)',
-          values: [groupId, cycleId, d.teacherId, s.startsAt, s.endsAt],
-        });
-    }
-    statements.push(auditStatement(user.id, 'publish', 'group', groupId));
-    await atomic(statements);
-    return done('Grupo publicado con cuatro fechas por ciclo.');
+    await publishMonthlyGroup(user, await data(request));
+    return done('Grupo publicado con cuatro fechas por mes.');
   }
   if (path === 'admin/application') {
     const d = z
@@ -678,14 +630,7 @@ export async function cloudflareApi(
   }
   if (path === 'admin/session') {
     const d = z.object({ sessionId: id, videoUrl: z.url() }).parse(await data(request));
-    const url = new URL(d.videoUrl);
-    assert(
-      url.protocol === 'https:' &&
-        !url.username &&
-        !url.password &&
-        process.env.VIDEO_ALLOWED_HOSTS?.split(',').includes(url.hostname),
-      'El enlace debe usar un dominio HTTPS autorizado.',
-    );
+    validateClassVideo(d.videoUrl);
     await atomic([
       { sql: 'UPDATE sessions SET video_url=$2 WHERE id=$1', values: [d.sessionId, d.videoUrl] },
       auditStatement(user.id, 'set_video', 'session', d.sessionId),
