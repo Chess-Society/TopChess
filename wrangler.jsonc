@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "topchess-global",
+  "main": "cloudflare/worker.ts",
+  "compatibility_date": "2026-10-28",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "account_id": "ca2b88d8bcef6c65609370d364bd0c35",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "topchess-global",
+      "database_id": "040d6336-62ec-473a-9369-31e09b416808",
+      "migrations_dir": "cloudflare/migrations",
+    },
+  ],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "vars": {
+    "CLOUDFLARE_DEPLOYMENT": "true",
+    "BILLING_ENABLED": "false",
+    "LEGAL_READY": "false",
+    "PAYMENT_PROVIDER": "stripe",
+    "STRIPE_PRICE_ID": "price_1UVbMxRBnPDD6EfR1dsthxFF",
+    "STRIPE_TAX_RATE_ID": "txr_1UVbQ0RBnPDD6EfRV6xlbv1F",
+    "LICHESS_CLIENT_ID": "topchess-global.kiroshirp.workers.dev",
+    "APP_URL": "https://topchess-global.kiroshirp.workers.dev",
+    "OWNER_LICHESS_ID": "andresli",
+  },
+  "observability": { "enabled": false },
+  "triggers": { "crons": ["*/15 * * * *"] },
+}
